@@ -1,0 +1,8 @@
+{
+  "name": "Remix Mint Response LLC",
+  "description": "Kansas commercial facility management and maintenance company providing expert HVAC, plumbing, electrical, handyman, and commercial renovation solutions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
