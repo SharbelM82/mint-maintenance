@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Guide{% endblock %}
+{% block content %}
+{% set M = F['direct_cost'] %}{% set P = F['gross_margin'] %}
+<header class="page-head">
+  <div>
+    <h1>Guide &amp; formulas</h1>
+    <p class="sub">Taken from the <em>Guide and Example</em> sheet of the Mintresponse Work Order List.</p>
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>Definitions</h2>
+    <dl class="kv kv-wide">
+      <dt>Direct cost</dt><dd>Total labor, subcontractor, material, travel and other direct job costs. Include parts cost here only once.</dd>
+      <dt>Parts ordered / status</dt><dd>Parts details or ordering status. This text does not add to direct cost.</dd>
+      <dt>Approved NTE</dt><dd>Client-approved maximum charge (Not To Exceed). It is not revenue. The NTE check flags a quote or invoice above this limit.</dd>
+      <dt>Quote</dt><dd>Direct cost × (1 + target markup %).</dd>
+      <dt>Invoice revenue</dt><dd>The actual invoice amount excluding sales tax, after discounts or credits. Do not enter the NTE as revenue.</dd>
+      <dt>Gross profit</dt><dd>Invoice revenue − direct cost. Gross margin = gross profit ÷ invoice revenue.</dd>
+      <dt>Actual markup</dt><dd>Gross profit ÷ direct cost. Markup uses cost as its denominator; margin uses revenue.</dd>
+      <dt>Net profit</dt><dd>Gross profit − allocated overhead − payment/admin fees − other expenses/tax. Enter all three expenses; use 0 when none.</dd>
+      <dt>Net margin</dt><dd>Net profit ÷ invoice revenue. Job-level profit after entered allocations, not company-wide net income.</dd>
+      <dt>Payment due</dt><dd>Invoice sent date + payment terms (days).</dd>
+      <dt>Balance due</dt><dd>Invoice revenue − amount received, both excluding sales tax. A negative balance means an overpayment.</dd>
+      <dt>Missing inputs</dt><dd>Results stay blank until their inputs are entered. Rates show <em>n.a.</em> if their denominator is zero.</dd>
+      <dt>Totals</dt><dd>Profit and balance totals add up calculated rows only. Resolve every “Enter…” status before relying on them.</dd>
+      <dt>Receivables aging</dt><dd>App addition: open balances on invoices that are sent (not Draft, Not invoiced or Void), grouped by days past the payment due date.</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Worked example</h2>
+    <p class="muted">Illustration only — not included in totals.</p>
+    {% set cost, markup, revenue, oh, fees, other = 1000, 0.4, 1400, 100, 30, 20 %}
+    {% set gp = revenue - cost %}{% set np = gp - oh - fees - other %}
+    <table class="mini example">
+      <tr><th>Direct cost</th><td class="num">{{ display(M, cost) }}</td></tr>
+      <tr><th>Target markup</th><td class="num">{{ display(P, markup) }}</td></tr>
+      <tr class="calc"><th>Quoted price</th><td class="num">{{ display(M, cost * (1 + markup)) }}</td></tr>
+      <tr><th>Invoice revenue</th><td class="num">{{ display(M, revenue) }}</td></tr>
+      <tr class="calc"><th>Gross profit</th><td class="num">{{ display(M, gp) }}</td></tr>
+      <tr class="calc"><th>Gross margin</th><td class="num">{{ display(P, gp / revenue) }}</td></tr>
+      <tr class="calc"><th>Actual markup</th><td class="num">{{ display(P, gp / cost) }}</td></tr>
+      <tr><th>Allocated overhead</th><td class="num">{{ display(M, oh) }}</td></tr>
+      <tr><th>Payment/admin fees</th><td class="num">{{ display(M, fees) }}</td></tr>
+      <tr><th>Other expenses/tax</th><td class="num">{{ display(M, other) }}</td></tr>
+      <tr class="calc"><th>Net profit</th><td class="num">{{ display(M, np) }}</td></tr>
+      <tr class="calc"><th>Net margin</th><td class="num">{{ display(P, np / revenue) }}</td></tr>
+    </table>
+  </section>
+</div>
+
+<section class="card">
+  <h2>Column reference</h2>
+  <p class="muted">Every column of the Excel tracker and how the app treats it.</p>
+  <div class="table-wrap">
+  <table class="mini">
+    <thead><tr><th>Excel</th><th>Column</th><th>Type</th><th>Notes</th></tr></thead>
+    <tbody>
+    {% for f in fields %}
+      <tr class="{{ 'calc' if f.computed }}">
+        <td>{{ f.col }}</td><td>{{ f.label }}</td>
+        <td>{{ 'Calculated' if f.computed else {'money': 'Amount (USD)', 'percent': 'Percent', 'date': 'Date', 'int': 'Whole number', 'choice': 'Drop-down', 'textarea': 'Text', 'text': 'Text'}[f.kind] }}</td>
+        <td>{% if f.choices %}{{ f.choices | join(', ') }}{% else %}{{ f.help }}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

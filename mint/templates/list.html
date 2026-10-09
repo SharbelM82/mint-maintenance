@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}Work orders{% endblock %}
+{% block content %}
+{% set base = args.to_dict() %}
+<header class="page-head">
+  <div>
+    <h1>{{ flags.get(args.get('flag'), 'Work orders') }}</h1>
+    <p class="sub">{{ rows | length }} of {{ total_count }} work order{{ 's' if total_count != 1 }}</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('main.export', fmt='xlsx', **base) }}" title="Download the shown rows in the Excel tracker layout, with formulas">Export Excel</a>
+    <a class="btn" href="{{ url_for('main.export', fmt='csv', **base) }}">Export CSV</a>
+    <a class="btn btn-primary" href="{{ url_for('main.new_work_order') }}">+ New</a>
+  </div>
+</header>
+
+<form class="filters card" method="get" action="{{ url_for('main.work_orders') }}">
+  <label class="grow">Search
+    <input type="search" name="q" value="{{ args.get('q', '') }}" placeholder="WO #, client, store, address, notes…">
+  </label>
+  <label>WO status
+    <select name="wo_status"><option value="">All</option>
+      {% for s in wo_statuses %}<option {{ 'selected' if args.get('wo_status') == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Invoice status
+    <select name="invoice_status"><option value="">All</option>
+      {% for s in invoice_statuses %}<option {{ 'selected' if args.get('invoice_status') == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Client
+    <select name="client"><option value="">All</option>
+      {% for s in clients %}<option {{ 'selected' if args.get('client') == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Handler
+    <select name="handler"><option value="">All</option>
+      {% for s in handlers %}<option {{ 'selected' if args.get('handler') == s }}>{{ s }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Show
+    <select name="flag"><option value="">Everything</option>
+      {% for k, v in flags.items() %}<option value="{{ k }}" {{ 'selected' if args.get('flag') == k }}>{{ v }}</option>{% endfor %}
+    </select>
+  </label>
+  {% if args.get('flag') == 'owed' or args.get('aging') %}
+  <label>Aging
+    <select name="aging"><option value="">All</option>
+      {% for b in aging_buckets %}<option {{ 'selected' if args.get('aging') == b }}>{{ b }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>Date in from <input type="date" name="from" value="{{ args.get('from', '') }}"></label>
+  <label>to <input type="date" name="to" value="{{ args.get('to', '') }}"></label>
+  <input type="hidden" name="view" value="{{ view }}">
+  {% if args.get('sort') %}<input type="hidden" name="sort" value="{{ args.sort }}"><input type="hidden" name="dir" value="{{ args.get('dir', 'asc') }}">{% endif %}
+  <div class="filter-buttons">
+    <button class="btn btn-primary">Apply</button>
+    <a class="btn btn-ghost" href="{{ url_for('main.work_orders', view=view) }}">Clear</a>
+  </div>
+</form>
+
+<div class="table-tools">
+  <div class="seg" role="group" aria-label="Columns">
+    <a class="{{ 'on' if view != 'all' }}" href="{{ url_for('main.work_orders', **dict(base, view='compact')) }}">Key columns</a>
+    <a class="{{ 'on' if view == 'all' }}" href="{{ url_for('main.work_orders', **dict(base, view='all')) }}">All 37 columns</a>
+  </div>
+  <span class="legend"><span class="sw sw-input"></span>Entered <span class="sw sw-calc"></span>Calculated</span>
+</div>
+
+{% if rows %}
+<div class="table-wrap">
+<table class="data">
+  <thead>
+    <tr>
+      {% for f in columns %}
+        {% set is_sorted = args.get('sort') == f.key %}
+        {% set next_dir = 'desc' if is_sorted and args.get('dir', 'asc') == 'asc' else 'asc' %}
+        <th class="{{ 'num' if f.kind in ('money', 'percent', 'int') }} {{ 'calc' if f.computed }} {{ 'sticky' if loop.first }}"
+            aria-sort="{{ ('descending' if args.get('dir') == 'desc' else 'ascending') if is_sorted else 'none' }}">
+          <a href="{{ url_for('main.work_orders', **dict(base, sort=f.key, dir=next_dir)) }}" title="Excel column {{ f.col }}">
+            {{ f.label }}{% if is_sorted %} {{ '▼' if args.get('dir') == 'desc' else '▲' }}{% endif %}
+          </a>
+        </th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="{{ 'row-overdue' if r.overdue }}">
+      {% for f in columns %}
+        {% set v = r.get(f.key) %}
+        {% if loop.first %}
+          <td class="sticky"><a href="{{ url_for('main.work_order', wo_id=r.id) }}"><strong>{{ v }}</strong></a></td>
+        {% elif f.key in ('wo_status', 'invoice_status', 'input_status', 'nte_check') %}
+          <td>{{ badge(v) }}</td>
+        {% elif f.key == 'payment_due' and r.overdue %}
+          <td class="overdue" title="{{ r.days_overdue }} days overdue">{{ display(f, v) }} ⚠</td>
+        {% elif f.kind == 'textarea' %}
+          <td class="clip" title="{{ v or '' }}">{{ v or '' }}</td>
+        {% else %}
+          <td class="{{ 'num' if f.kind in ('money', 'percent', 'int') }} {{ 'neg' if v is number and v < 0 }}">{{ display(f, v) }}</td>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      {% for f in columns %}
+        {% if loop.first %}<th class="sticky">Totals</th>
+        {% elif f.key in ('direct_cost', 'invoice_revenue', 'gross_profit', 'net_profit', 'balance_due', 'amount_received') %}
+          <th class="num">{{ display(f, totals[{'invoice_revenue': 'invoiced_revenue'}.get(f.key, f.key)]) }}</th>
+        {% else %}<th></th>{% endif %}
+      {% endfor %}
+    </tr>
+  </tfoot>
+</table>
+</div>
+{% else %}
+<section class="card empty">
+  {% if total_count %}
+    <p>No work orders match these filters. <a href="{{ url_for('main.work_orders') }}">Clear filters</a></p>
+  {% else %}
+    <p>No work orders yet. <a href="{{ url_for('main.import_page') }}">Import your Excel file</a> or <a href="{{ url_for('main.new_work_order') }}">add one</a>.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

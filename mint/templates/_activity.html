@@ -1,0 +1,24 @@
+{% if activity %}
+<ul class="activity">
+  {% for a in activity %}
+  <li>
+    <time datetime="{{ a.at }}">{{ a.at.replace('T', ' ')[:16] }}</time>
+    <span>
+      <strong>{{ a.action }}</strong>
+      {% if a.work_order_id and a.action != 'Deleted' and not hide_wo %}
+        · <a href="{{ url_for('main.work_order', wo_id=a.work_order_id) }}">WO {{ a.wo_number }}</a>
+      {% elif not hide_wo %} · WO {{ a.wo_number }}{% endif %}
+      {% if a.details and a.action not in ('Created', 'Imported') %}
+        <details><summary>{{ a.details | length }} field{{ 's' if a.details | length != 1 }} changed</summary>
+          <table class="mini">
+            {% for label, pair in a.details.items() %}
+            <tr><th>{{ label }}</th><td class="muted">{{ pair[0] if pair[0] is not none else '—' }}</td><td>→ {{ pair[1] if pair[1] is not none else '—' }}</td></tr>
+            {% endfor %}
+          </table>
+        </details>
+      {% endif %}
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}<p class="muted">No activity yet.</p>{% endif %}

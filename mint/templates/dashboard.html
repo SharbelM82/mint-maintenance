@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, hbars %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+{% set M = F['invoice_revenue'] %}
+<header class="page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p class="sub">All amounts in USD, excluding sales tax · {{ today.strftime('%B %d, %Y') }}</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('main.new_work_order') }}">+ New work order</a>
+</header>
+
+{% if totals.work_orders == 0 %}
+<section class="card empty">
+  <h2>No work orders yet</h2>
+  <p>Start by importing your <em>Mintresponse Work Order List</em> Excel file, or add your first work order.</p>
+  <p class="actions">
+    <a class="btn btn-primary" href="{{ url_for('main.import_page') }}">Import from Excel</a>
+    <a class="btn" href="{{ url_for('main.new_work_order') }}">Add a work order</a>
+  </p>
+</section>
+{% endif %}
+
+<section class="tiles" aria-label="Summary totals">
+  <a class="tile" href="{{ url_for('main.work_orders') }}">
+    <span class="tile-label">Work orders</span>
+    <span class="tile-value">{{ totals.work_orders }}</span>
+  </a>
+  <a class="tile" href="{{ url_for('main.work_orders', sort='invoice_revenue', dir='desc') }}">
+    <span class="tile-label">Invoiced revenue</span>
+    <span class="tile-value">{{ display(M, totals.invoiced_revenue) }}</span>
+  </a>
+  <a class="tile" href="{{ url_for('main.work_orders', sort='gross_profit', dir='desc') }}">
+    <span class="tile-label">Gross profit*</span>
+    <span class="tile-value {{ 'neg' if totals.gross_profit < 0 }}">{{ display(M, totals.gross_profit) }}</span>
+  </a>
+  <a class="tile" href="{{ url_for('main.work_orders', sort='net_profit', dir='desc') }}">
+    <span class="tile-label">Net profit*</span>
+    <span class="tile-value {{ 'neg' if totals.net_profit < 0 }}">{{ display(M, totals.net_profit) }}</span>
+  </a>
+  <a class="tile" href="{{ url_for('main.work_orders', flag='owed', sort='payment_due') }}">
+    <span class="tile-label">Balance due*</span>
+    <span class="tile-value">{{ display(M, totals.balance_due) }}</span>
+  </a>
+  <a class="tile {{ 'tile-warn' if totals.needs_input }}" href="{{ url_for('main.work_orders', flag='needs_input') }}">
+    <span class="tile-label">Needs financial input</span>
+    <span class="tile-value">{{ totals.needs_input }}</span>
+  </a>
+</section>
+<p class="footnote">*Totals include calculated rows only. Complete financial inputs before relying on profit totals.</p>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>Work orders by status</h2>
+    {% set items = [] %}
+    {% for s, n in by_status %}
+      {% set _ = items.append((s, n, url_for('main.work_orders', wo_status=s) if s != 'No status' else url_for('main.work_orders'), n ~ '')) %}
+    {% endfor %}
+    {{ hbars(items, 'Work orders by status') }}
+  </section>
+
+  <section class="card">
+    <h2>Receivables aging <small>balance due by days past due</small></h2>
+    {% set items = [] %}
+    {% for b, amt, n in aging %}
+      {% set _ = items.append((b, amt, url_for('main.work_orders', flag='owed', aging=b), display(M, amt) ~ ' · ' ~ n)) %}
+    {% endfor %}
+    {{ hbars(items, 'Receivables aging') }}
+    <p class="note">
+      {% if totals.overdue_count %}
+        <a href="{{ url_for('main.work_orders', flag='overdue', sort='payment_due') }}"><strong>{{ display(M, totals.overdue_amount) }}</strong> overdue on {{ totals.overdue_count }} invoice{{ 's' if totals.overdue_count != 1 }}</a>
+      {% else %}No overdue invoices.{% endif %}
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Top clients <small>by invoice revenue</small></h2>
+    {% if top_clients %}
+      {% set items = [] %}
+      {% for name, amt in top_clients %}
+        {% set _ = items.append((name, amt, url_for('main.work_orders', client=name if name != '(no client)' else ''), display(M, amt))) %}
+      {% endfor %}
+      {{ hbars(items, 'Top clients by invoice revenue') }}
+    {% else %}<p class="muted">No invoiced work orders yet.</p>{% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Needs attention</h2>
+    {% if not overdue and not nte %}<p class="muted">Nothing overdue and no NTE exceptions.</p>{% endif %}
+    {% if overdue %}
+      <h3>Overdue invoices</h3>
+      <table class="mini">
+        <thead><tr><th>WO #</th><th>Client</th><th class="num">Balance</th><th class="num">Days late</th></tr></thead>
+        <tbody>
+        {% for r in overdue %}
+          <tr><td><a href="{{ url_for('main.work_order', wo_id=r.id) }}">{{ r.wo_number }}</a></td>
+              <td>{{ r.client or '' }}</td>
+              <td class="num">{{ display(M, r.balance_due) }}</td>
+              <td class="num">{{ r.days_overdue }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+    {% if nte %}
+      <h3>Over the approved NTE</h3>
+      <table class="mini">
+        <thead><tr><th>WO #</th><th>Client</th><th>Check</th></tr></thead>
+        <tbody>
+        {% for r in nte %}
+          <tr><td><a href="{{ url_for('main.work_order', wo_id=r.id) }}">{{ r.wo_number }}</a></td>
+              <td>{{ r.client or '' }}</td><td>{{ badge(r.nte_check) }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2>Recent activity</h2>
+  {% include "_activity.html" %}
+</section>
+{% endblock %}

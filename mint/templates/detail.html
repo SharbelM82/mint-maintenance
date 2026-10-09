@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}WO {{ wo.wo_number }}{% endblock %}
+{% block content %}
+{% set M = F['direct_cost'] %}{% set P = F['gross_margin'] %}
+<header class="page-head">
+  <div>
+    <p class="crumb"><a href="{{ url_for('main.work_orders') }}">Work orders</a> /</p>
+    <h1>{{ wo.wo_number }} {{ badge(wo.wo_status) }} {{ badge(wo.invoice_status) }}</h1>
+    <p class="sub">{{ wo.client or 'No client' }}{% if wo.store_name %} · {{ wo.store_name }}{% endif %}{% if wo.location %} · {{ wo.location }}{% endif %}</p>
+  </div>
+  <div class="actions no-print">
+    <a class="btn btn-primary" href="{{ url_for('main.edit_work_order', wo_id=wo.id) }}">Edit</a>
+    <a class="btn" href="{{ url_for('main.new_work_order', copy=wo.id) }}" title="New work order with the same client, site and team">Duplicate</a>
+    <button class="btn" type="button" onclick="window.print()">Print</button>
+    <form method="post" action="{{ url_for('main.delete_work_order', wo_id=wo.id) }}"
+          onsubmit="return confirm('Delete work order {{ wo.wo_number }}? This cannot be undone.')">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button class="btn btn-danger">Delete</button>
+    </form>
+  </div>
+</header>
+
+<section class="tiles tiles-5" aria-label="Job financials">
+  <div class="tile"><span class="tile-label">Invoice revenue</span><span class="tile-value">{{ display(M, wo.invoice_revenue) or '—' }}</span></div>
+  <div class="tile"><span class="tile-label">Direct cost</span><span class="tile-value">{{ display(M, wo.direct_cost) or '—' }}</span></div>
+  <div class="tile"><span class="tile-label">Gross profit</span>
+    <span class="tile-value {{ 'neg' if wo.gross_profit is number and wo.gross_profit < 0 }}">{{ display(M, wo.gross_profit) or '—' }}</span>
+    {% if wo.gross_margin %}<span class="tile-sub">{{ display(P, wo.gross_margin) }} margin</span>{% endif %}</div>
+  <div class="tile"><span class="tile-label">Net profit</span>
+    <span class="tile-value {{ 'neg' if wo.net_profit is number and wo.net_profit < 0 }}">{{ display(M, wo.net_profit) or '—' }}</span>
+    {% if wo.net_margin %}<span class="tile-sub">{{ display(P, wo.net_margin) }} margin</span>{% endif %}</div>
+  <div class="tile {{ 'tile-warn' if wo.overdue }}"><span class="tile-label">Balance due</span>
+    <span class="tile-value">{{ display(M, wo.balance_due) or '—' }}</span>
+    {% if wo.overdue %}<span class="tile-sub">{{ wo.days_overdue }} days overdue</span>
+    {% elif wo.payment_due and wo.owed %}<span class="tile-sub">due {{ display(F['payment_due'], wo.payment_due) }}</span>{% endif %}</div>
+</section>
+
+<div class="status-line">
+  <span>NTE check: {{ badge(wo.nte_check) }}</span>
+  <span>Financial inputs: {{ badge(wo.input_status) }}</span>
+</div>
+
+<div class="detail-grid">
+  <div>
+    {% for title, keys in sections %}
+    <section class="card">
+      <h2>{{ title }}</h2>
+      <dl class="kv">
+        {% for key in keys %}{% set f = F[key] %}{% set v = wo.get(key) %}
+          <dt>{{ f.label }}{% if f.computed %} <span class="calc-tag" title="Calculated">ƒ</span>{% endif %}</dt>
+          <dd class="{{ 'neg' if v is number and v < 0 }} {{ 'pre' if f.kind == 'textarea' }}">
+            {%- if key in ('wo_status', 'invoice_status', 'nte_check', 'input_status') %}{{ badge(v) or '—' }}
+            {%- else %}{{ display(f, v) or '—' }}{% endif -%}
+          </dd>
+        {% endfor %}
+      </dl>
+    </section>
+    {% endfor %}
+  </div>
+
+  <aside class="no-print">
+    <section class="card">
+      <h2>Record a payment</h2>
+      {% if wo.invoice_revenue is number %}
+      <form method="post" action="{{ url_for('main.record_payment', wo_id=wo.id) }}" class="stack">
+        <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+        <label>Amount received
+          <span class="affix"><i>$</i><input name="amount" inputmode="decimal" required
+                 value="{{ '%.2f' | format(wo.balance_due) if wo.balance_due is number and wo.balance_due > 0 }}"></span>
+        </label>
+        <label>Method
+          <select name="method"><option value="">—</option>
+            {% for m in methods %}<option {{ 'selected' if wo.payment_method == m }}>{{ m }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Paid on <input type="date" name="paid_on" value="{{ today }}"></label>
+        <button class="btn btn-primary">Add payment</button>
+        <p class="help">Adds to <em>Amount received</em> and sets the invoice status to Paid or Partially paid.</p>
+      </form>
+      {% else %}
+      <p class="muted">Enter the invoice revenue first. <a href="{{ url_for('main.edit_work_order', wo_id=wo.id) }}">Edit</a></p>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2>History</h2>
+      {% set hide_wo = true %}
+      {% include "_activity.html" %}
+    </section>
+  </aside>
+</div>
+{% endblock %}
