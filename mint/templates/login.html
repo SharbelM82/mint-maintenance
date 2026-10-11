@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · Mintresponse</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="login-page">
+  <form method="post" class="card login-card">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Mintresponse" width="72" height="68">
+    <h1>Mintresponse Work Orders</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}<div class="flash flash-{{ cat }}">{{ msg }}</div>{% endfor %}
+    {% endwith %}
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label>Password <input type="password" name="password" required autofocus></label>
+    <button class="btn btn-primary">Sign in</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{% macro badge(value) -%}
+  {%- set v = value or '' -%}
+  {%- if v in ('Completed', 'Paid', 'Complete', 'Invoice within NTE', 'Quote within NTE') -%}{% set tone = 'good' %}
+  {%- elif v in ('Awaiting parts', 'Awaiting approval', 'Partially paid') or v.startswith('Enter') -%}{% set tone = 'warn' %}
+  {%- elif v in ('Disputed', 'Invoice exceeds NTE', 'Quote exceeds NTE') -%}{% set tone = 'bad' %}
+  {%- elif v in ('Scheduled', 'In progress', 'Sent', 'New') -%}{% set tone = 'info' %}
+  {%- else -%}{% set tone = 'muted' %}{%- endif -%}
+  {%- if v %}<span class="badge badge-{{ tone }}">{{ v }}</span>{% endif -%}
+{%- endmacro %}
+
+{# Horizontal bar chart: items = [(label, value, href, value_text)] #}
+{% macro hbars(items, aria) -%}
+  {%- set peak = (items | map(attribute=1) | max) if items else 0 -%}
+  <ul class="hbars" aria-label="{{ aria }}">
+  {% for label, value, href, text in items %}
+    <li>
+      <a href="{{ href }}" title="{{ label }}: {{ text }}">
+        <span class="hb-label">{{ label }}</span>
+        <span class="hb-track"><span class="hb-bar" style="width: {{ (100 * value / peak) if peak else 0 }}%"></span></span>
+        <span class="hb-value">{{ text }}</span>
+      </a>
+    </li>
+  {% endfor %}
+  </ul>
+{%- endmacro %}

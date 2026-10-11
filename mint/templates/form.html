@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}{{ 'New work order' if mode == 'new' else 'Edit WO ' ~ wo.wo_number }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ 'New work order' if mode == 'new' else 'Edit work order ' ~ wo.wo_number }}</h1>
+    <p class="sub">Yellow fields are entered by you. Green fields are calculated with the same formulas as the Excel tracker.</p>
+  </div>
+</header>
+
+<form method="post" id="wo-form" class="wo-form" novalidate
+      action="{{ url_for('main.new_work_order') if mode == 'new' else url_for('main.edit_work_order', wo_id=wo.id) }}"
+      data-calc-url="{{ url_for('main.api_calc') }}">
+  <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+  {% for title, keys in sections %}
+  <fieldset class="card">
+    <legend>{{ title }}</legend>
+    <div class="fields">
+    {% for key in keys %}
+      {% set f = F[key] %}
+      {% set err = errors.get(key) %}
+      {% if f.computed %}
+        <div class="field calc {{ 'wide' if key in ('nte_check', 'input_status') }}">
+          <span class="label">{{ f.label }} <small>Excel {{ f.col }}</small></span>
+          <output id="calc-{{ key }}" for="wo-form">{{ display(f, wo.get(key)) or '—' }}</output>
+        </div>
+      {% else %}
+        <label class="field {{ 'wide' if f.kind == 'textarea' or key in ('address', 'parts_status', 'job_type') }} {{ 'has-error' if err }}">
+          <span class="label">{{ f.label }}{% if f.required %} <b class="req" aria-label="required">*</b>{% endif %} <small>Excel {{ f.col }}</small></span>
+          {% set v = form_value(f, wo.get(key)) %}
+          {% if f.kind == 'textarea' %}
+            <textarea name="{{ key }}" rows="3">{{ v }}</textarea>
+          {% elif f.kind == 'choice' %}
+            <select name="{{ key }}">
+              <option value="">—</option>
+              {% for c in f.choices %}<option {{ 'selected' if v == c }}>{{ c }}</option>{% endfor %}
+            </select>
+          {% elif f.kind == 'date' %}
+            <input type="date" name="{{ key }}" value="{{ v }}">
+          {% elif f.kind == 'money' %}
+            <span class="affix"><i>$</i><input type="text" inputmode="decimal" name="{{ key }}" value="{{ v }}" placeholder="0.00" autocomplete="off"></span>
+          {% elif f.kind == 'percent' %}
+            <span class="affix affix-end"><input type="text" inputmode="decimal" name="{{ key }}" value="{{ v }}" placeholder="40" autocomplete="off"><i>%</i></span>
+          {% elif f.kind == 'int' %}
+            <input type="number" min="0" step="1" name="{{ key }}" value="{{ v }}" placeholder="30">
+          {% else %}
+            <input type="text" name="{{ key }}" value="{{ v }}" {{ 'required autofocus' if f.required }}
+                   {% if key in suggestions %}list="dl-{{ key }}" autocomplete="off"{% endif %}>
+            {% if key in suggestions %}
+              <datalist id="dl-{{ key }}">{% for s in suggestions[key] %}<option value="{{ s }}">{% endfor %}</datalist>
+            {% endif %}
+          {% endif %}
+          {% if err %}<span class="error">{{ err }}</span>{% elif f.help %}<span class="help">{{ f.help }}</span>{% endif %}
+        </label>
+      {% endif %}
+    {% endfor %}
+    </div>
+  </fieldset>
+  {% endfor %}
+
+  <div class="form-actions">
+    <button class="btn btn-primary">{{ 'Create work order' if mode == 'new' else 'Save changes' }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('main.work_orders') if mode == 'new' else url_for('main.work_order', wo_id=wo.id) }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='form.js') }}"></script>{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Import{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>Import from Excel</h1>
+    <p class="sub">Upload the <em>Mintresponse Work Order List</em> workbook (.xlsx) or a CSV with the same column headings.</p>
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <form method="post" enctype="multipart/form-data" class="stack">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <label class="drop">
+        <span>Choose a file</span>
+        <input type="file" name="file" accept=".xlsx,.xlsm,.csv" required>
+      </label>
+      <button class="btn btn-primary">Import work orders</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2>How importing works</h2>
+    <ul class="bullets">
+      <li>The app finds the header row that contains <strong>WO #</strong> (row 10 in the tracker) and reads every row below it.</li>
+      <li>Each row is matched on <strong>WO #</strong>: new numbers are added, existing ones are updated. Nothing is deleted.</li>
+      <li>Only the entered (yellow) columns are read. Formula columns are recalculated by the app.</li>
+      <li>The file is treated as the source of truth: a blank cell clears that value in the app. Columns that are not in the file at all are left as they are.</li>
+      <li>Rows with invalid values (e.g. a status that is not in the drop-down list, or a negative amount) are skipped and listed below, so you can fix them in Excel and import again.</li>
+      <li>Need a fresh copy of the tracker? <a href="{{ url_for('main.blank_template') }}">Download the blank template</a>.</li>
+    </ul>
+  </section>
+</div>
+
+{% if report %}
+<section class="card">
+  <h2>Import result · {{ report.filename }}</h2>
+  <div class="tiles tiles-4">
+    <div class="tile"><span class="tile-label">Added</span><span class="tile-value">{{ report.created | length }}</span></div>
+    <div class="tile"><span class="tile-label">Updated</span><span class="tile-value">{{ report.updated | length }}</span></div>
+    <div class="tile"><span class="tile-label">Unchanged</span><span class="tile-value">{{ report.unchanged | length }}</span></div>
+    <div class="tile {{ 'tile-warn' if report.skipped }}"><span class="tile-label">Skipped</span><span class="tile-value">{{ report.skipped | length }}</span></div>
+  </div>
+  {% if report.skipped %}
+  <h3>Skipped rows — fix these in the file and import again</h3>
+  <table class="mini">
+    <thead><tr><th>Excel row</th><th>WO #</th><th>Problem</th></tr></thead>
+    <tbody>
+    {% for row, wo, errs in report.skipped %}
+      <tr><td>{{ row }}</td><td>{{ wo }}</td><td>{{ errs | join('; ') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if not (report.created or report.updated or report.unchanged or report.skipped) %}
+    <p class="muted">The file has the right layout but no work-order rows yet.</p>
+  {% endif %}
+  <p class="actions"><a class="btn btn-primary" href="{{ url_for('main.work_orders') }}">View work orders</a></p>
+</section>
+{% endif %}
+{% endblock %}
